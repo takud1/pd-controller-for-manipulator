@@ -28,6 +28,8 @@ class Frwrds(Node):
         self.l2 = 1
         self.l3 = 1
 
+        self.pose = Pose()
+
     def timer_callback(self):
         self.publisher_.publish(self.pose)
 
@@ -69,7 +71,6 @@ class Frwrds(Node):
         quat = conv.as_quat()
         d = t03[:-1, 3]
 
-        self.pose = Pose()
         self.pose.position.x = d[0]
         self.pose.position.y = d[1]
         self.pose.position.z = d[2] + 1

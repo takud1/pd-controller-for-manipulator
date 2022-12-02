@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'fk = py_pubsub.fk:main',
             'ik = py_pubsub.ik:main',
+            'pd = py_pubsub.pd:main',
         ],
     },
 )
