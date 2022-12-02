@@ -11,13 +11,14 @@ class Pds(Node):
 
         self.j_effort = Float64MultiArray()
         self.j_effort.data = [0.0,0.0,0.0]
+        self.j_pos = [0.0,0.0,0.0]
         # self.j_effort.data[1] = 0
         # self.j_effort.data[2] = 0
 
         self.error = [0, 0, 0]
         self.qs = [0, 0, 0]
-        self.kp = [0.5, 0.5, 1.0]
-        self.kd = [350, 70, 49]
+        self.kp = [10, 5, 10]
+        self.kd = [8, 7, 8]
 
         # Inititialize FK listener
         self.subscription = self.create_subscription(
@@ -28,14 +29,28 @@ class Pds(Node):
         self.subscription  # prevent unused variable warning
 
         self.publisher_ = self.create_publisher(Float64MultiArray, '/forward_effort_controller/commands', 10)
-        # timer_period = 0.1  # seconds
-        # self.timer = self.create_timer(timer_period, self.timer_callback)
+        timer_period = 0.1  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
 
         self.srv = self.create_service(PD, 'conv_ik', self.calc_effort)
 
-    # def timer_callback(self):
+    def timer_callback(self):
+        
+        if sum(self.error) != 0:
+            for i in range(len(self.kp)):
 
-    #     self.publisher_.publish(self.j_effort)
+                self.error[i] = self.j_pos[i] - self.qs[i]
+
+                self.j_effort.data[i] = -(self.error[i] * self.kp[i] + self.j_vel[i] * self.kd[i])
+
+        else:
+            self.j_effort.data = [0.0,0.0,0.0]
+
+            for i in range(len(self.kp)):
+
+                self.error[i] = self.j_pos[i] - self.qs[i]
+
+        self.publisher_.publish(self.j_effort)
 
     def joints_callback(self, msg):
 
@@ -45,20 +60,6 @@ class Pds(Node):
     def calc_effort(self, request, response):
         
         self.qs = [request.q1, request.q2, request.q3]
-
-        for i in range(len(self.kp)):
-
-                self.error[i] = self.j_pos[i] - self.qs[i]
-
-        while(abs(sum(self.error)) > 0.1):
-
-            for i in range(len(self.kp)):
-
-                self.error[i] = self.j_pos[i] - self.qs[i]
-
-                self.j_effort.data[i] = -(self.error[i] * self.kp[i] + self.j_vel[i] * self.kd[i])
-
-            self.publisher_.publish(self.j_effort)
 
         response.msg = "Done"
 
