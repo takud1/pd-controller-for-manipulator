@@ -24,6 +24,7 @@ setup(
             'ik = py_pubsub.ik:main',
             'pd = py_pubsub.pd:main',
             'vel_conv = py_pubsub.vel_conv:main',
+            'pd_vel = py_pubsub.pd_vel:main',
         ],
     },
 )

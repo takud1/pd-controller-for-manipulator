@@ -2,6 +2,8 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
+from numpy import array, cos, sin, linalg, transpose
+import sys
 
 class Pd_vel(Node):
 
@@ -12,10 +14,17 @@ class Pd_vel(Node):
         self.j_effort.data = [0.0,0.0,0.0]
         self.j_pos = [0.0,0.0,0.0]
         self.j_vel = [0.0,0.0,0.0]
+        self.j_len = [1, 1, 1]
 
         self.error = [0, 0, 0]
-        self.qd = [0, 0, 0]
-        self.kp = [10, 5, 10]
+        self.qdd = [0.0, 0.0, 0.0]
+        self.ee_vel = []
+
+        for index, a in enumerate(sys.argv[1:]):
+            self.ee_vel.append(float(a))
+        # self.ee_vel = int(sys.argv[1:])
+
+        self.kp = [1, 5, 3]
         self.kd = [8, 7, 8]
 
         # Inititialize FK listener
@@ -30,31 +39,70 @@ class Pd_vel(Node):
         timer_period = 0.1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
-        # self.srv = self.create_service(PD, 'conv_ik', self.calc_effort)
-
     def timer_callback(self):
         
         if sum(self.error) != 0:
+
+            self.jacobian = array([
+
+                    [- self.j_len[0]*sin(self.j_pos[0]) - self.j_len[1]*cos(self.j_pos[0])*sin(self.j_pos[1]) - self.j_len[1]*cos(self.j_pos[1])*sin(self.j_pos[0]), - self.j_len[1]*cos(self.j_pos[0])*sin(self.j_pos[1]) - self.j_len[1]*cos(self.j_pos[1])*sin(self.j_pos[0]),  0],
+
+                    [  self.j_len[0]*cos(self.j_pos[0]) + self.j_len[1]*cos(self.j_pos[0])*cos(self.j_pos[1]) - self.j_len[1]*sin(self.j_pos[0])*sin(self.j_pos[1]),   self.j_len[1]*cos(self.j_pos[0])*cos(self.j_pos[1]) - self.j_len[1]*sin(self.j_pos[0])*sin(self.j_pos[1]),  0],
+
+                    [                                                             0,                                               0, -1],
+
+                    # [                                                             0,                                               0,  0],
+
+                    # [                                                             0,                                               0,  0],
+
+                    # [                                                             1,                                               1,  0]
+                ])
+
+            self.qdd = linalg.pinv(self.jacobian) @ transpose(array(self.ee_vel))
+
             for i in range(len(self.kp)):
 
-                self.error[i] = self.j_pos[i] - self.qd[i]
+                self.error[i] = self.j_vel[i] - self.qdd[i]
+                # print(self.ee_vel)
 
-                self.j_effort.data[i] = -(self.error[i] * self.kp[i] + self.j_vel[i] * self.kd[i])
+            self.j_effort.data[0] = (self.error[0] * self.kp[0]) #+ self.j_vel[i] * self.kd[i])
+            self.j_effort.data[1] = -(self.error[1] * self.kp[1])
+            self.j_effort.data[2] = (self.error[2] * self.kp[2])
 
         else:
             self.j_effort.data = [0.0,0.0,0.0]
 
+            self.jacobian = array([
+
+                    [- self.j_len[0]*sin(self.j_pos[0]) - self.j_len[1]*cos(self.j_pos[0])*sin(self.j_pos[1]) - self.j_len[1]*cos(self.j_pos[1])*sin(self.j_pos[0]), - self.j_len[1]*cos(self.j_pos[0])*sin(self.j_pos[1]) - self.j_len[1]*cos(self.j_pos[1])*sin(self.j_pos[0]),  0],
+
+                    [  self.j_len[0]*cos(self.j_pos[0]) + self.j_len[1]*cos(self.j_pos[0])*cos(self.j_pos[1]) - self.j_len[1]*sin(self.j_pos[0])*sin(self.j_pos[1]),   self.j_len[1]*cos(self.j_pos[0])*cos(self.j_pos[1]) - self.j_len[1]*sin(self.j_pos[0])*sin(self.j_pos[1]),  0],
+
+                    [                                                             0,                                               0, -1],
+
+                    # [                                                             0,                                               0,  0],
+
+                    # [                                                             0,                                               0,  0],
+    
+                    # [                                                             1,                                               1,  0]
+                ])
+
+            self.qdd = linalg.pinv(self.jacobian) @ transpose(array(self.ee_vel))
+
             for i in range(len(self.kp)):
 
-                self.error[i] = self.j_pos[i] - self.qd[i]
+                self.error[i] = self.j_vel[i] - self.qdd[i]
+                # print(self.error)
 
         self.publisher_.publish(self.j_effort)
+        print(self.jacobian)
+
 
     def joints_callback(self, msg):
 
         self.j_pos = msg.position
         self.j_vel = msg.velocity
-        self.curr_time = msg.header.stamp.sec + msg.header.stamp.nanosec/10**9
+        # self.curr_time = msg.header.stamp.sec + msg.header.stamp.nanosec/10**9
    
 def main(args=None):
     rclpy.init(args=args)
