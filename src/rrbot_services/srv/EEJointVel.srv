@@ -1,0 +1,10 @@
+float64 x_lvel
+float64 y_lvel
+float64 z_lvel
+float64 x_avel
+float64 y_avel
+float64 z_avel
+---
+float64 q1_vel
+float64 q2_vel
+float64 q3_vel
